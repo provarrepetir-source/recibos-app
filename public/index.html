@@ -1,0 +1,17 @@
+<!doctype html><html lang="pt"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Recibos</title>
+<style>body{font:15px system-ui;background:#111;color:#eee;margin:0;padding:16px;max-width:900px;margin-inline:auto}input,button{padding:10px;font-size:15px;border-radius:8px;border:1px solid #444;background:#1c1c1c;color:#eee}button{background:#2a6;border:0}
+table{width:100%;border-collapse:collapse;margin-top:12px}td,th{padding:6px 8px;border-bottom:1px solid #333;text-align:left;font-size:14px}.ok{color:#5d5}.bad{color:#f77}.top{display:flex;justify-content:space-between;align-items:center}</style></head>
+<body><div class="top"><h2>Recibos de vencimento</h2><form method="post" action="/logout"><button style="background:#444">Sair</button></form></div>
+<p>Carregue o PDF do mês. Nada é enviado nesta fase: só a pré-visualização.</p>
+<p><button id="sf" style="background:#357">Preparar pastas no Drive</button> <span id="sfm"></span></p>
+<input type="file" id="f" accept="application/pdf"> <button id="b">Analisar</button><div id="r"></div>
+<script>
+const $=id=>document.getElementById(id);
+$('sf').onclick=async()=>{$('sfm').textContent='…';const x=await fetch('/api/setup-folders',{method:'POST'});const d=await x.json();$('sfm').textContent=d.ok?'Criadas/encontradas: '+d.pastas.join(' · ')+'. Pode movê-las para onde quiser.':(d.error||'erro')};
+$('b').onclick=async()=>{const f=$('f').files[0];if(!f)return;$('r').textContent='A analisar…';
+const fd=new FormData();fd.append('pdf',f);const x=await fetch('/api/preview',{method:'POST',body:fd});
+if(x.status===401){location='/login.html';return}const d=await x.json();if(d.error){$('r').textContent=d.error;return}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+$('r').innerHTML=`<p>${d.totalPaginas} páginas · <b class="ok">${d.resumo.prontos} prontos</b> · <b class="bad">${d.resumo.bloqueados} bloqueados</b>${d.paginasIlegiveis.length?` · páginas ilegíveis: ${d.paginasIlegiveis}`:''}</p>
+<table><tr><th>Id</th><th>Nome</th><th>Páginas</th><th>Telemóvel</th><th>NIF</th><th>Estado</th></tr>`+d.funcionarios.map(r=>`<tr><td>${esc(r.id)}</td><td>${esc(r.nome)}</td><td>${r.paginas.join(', ')}</td><td>${esc(r.telemovel||'—')}</td><td>${esc(r.nif||'—')}</td><td class="${r.status==='ok'?'ok':'bad'}">${r.status==='ok'?'OK':esc(r.problemas.join('; '))}</td></tr>`).join('')+'</table>'};
+</script></body></html>

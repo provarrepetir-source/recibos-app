@@ -1,0 +1,4 @@
+<!doctype html><html lang="pt"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Recibos</title>
+<style>body{font:16px system-ui;background:#111;color:#eee;display:grid;place-items:center;height:100dvh;margin:0}form{display:grid;gap:12px;width:min(320px,90vw)}input,button{padding:12px;font-size:16px;border-radius:8px;border:1px solid #444;background:#1c1c1c;color:#eee}button{background:#2a6;border:0}.e{color:#f77}</style></head>
+<body><form method="post" action="/login"><h2>Recibos de vencimento</h2><input type="password" name="password" placeholder="Password" autofocus required><button>Entrar</button><div class="e" id="e"></div></form>
+<script>if(location.search.includes('erro'))document.getElementById('e').textContent='Password incorreta'</script></body></html>
