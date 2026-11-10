@@ -1,0 +1,2 @@
+google client id: 331747683399-a2ikrob4libgmmqsabrs6k34d621q5ep.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET: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
