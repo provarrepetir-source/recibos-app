@@ -40,7 +40,7 @@ app.post('/login', (req, res) => {
   if (eq(sign(req.body.password || ''), sign(PASSWORD))) {
     fails.delete(req.ip);
     const exp = String(Date.now() + 8 * 3600e3);
-    res.set('Set-Cookie', `sess=${exp}.${sign(exp)}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=28800`);
+    res.set('Set-Cookie', `sess=${exp}.${sign(exp)}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=28800`);
     return res.redirect('/');
   }
   const f = fails.get(req.ip) || { n: 0, t: 0 }; fails.set(req.ip, { n: f.n + 1, t: Date.now() });
