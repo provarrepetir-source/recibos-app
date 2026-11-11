@@ -48,7 +48,7 @@ async function sendBatch(pdfPath, { deps = { meta, google }, force = false, only
       rec.wamid = await deps.meta.sendPayslip({ to: rec.destino, mediaId, filename, nome: r.nome.split(' ')[0], mes: periodo.label });
       rec.quando = new Date().toISOString();
       rec.estado = (jaExiste ? 'REENVIO ' : '') + (live ? 'aceite pela Meta' : 'TESTE aceite pela Meta');
-    } catch (e) { rec.estado = 'FALHOU'; rec.detalhe = e.message.slice(0, 200); }
+    } catch (e) { rec.estado = 'FALHOU'; rec.detalhe = e.message.slice(0, 400); }
     out.push(rec);
     await sleep(+process.env.SEND_DELAY_MS || 1000);
   }

@@ -3,12 +3,15 @@ const V = () => process.env.GRAPH_VERSION || 'v21.0';
 const tok = () => process.env.WHATSAPP_TOKEN;
 const pid = () => process.env.PHONE_NUMBER_ID;
 
-async function graph(url, opts) {
+async function graph(url, opts, ctx = '') {
   const r = await fetch(url, opts);
   const j = await r.json().catch(() => ({}));
   if (!r.ok) {
     const e = j.error || {};
-    throw new Error(`Meta ${r.status} code=${e.code || '?'}: ${e.error_user_msg || e.message || 'erro'}`);   // nunca inclui conteúdo do recibo
+    // error_data.details traz o pormenor (ex.: "template name (x) does not exist in pt_PT"); ctx indica o que a app enviou
+    const det = e.error_data?.details;
+    const txt = [e.error_user_msg || e.message || 'erro', det && det !== e.message ? det : null].filter(Boolean).join(' | ');
+    throw new Error(`Meta ${r.status} code=${e.code || '?'}: ${txt}${ctx}`);   // nunca inclui conteúdo do recibo
   }
   return j;
 }
@@ -37,7 +40,8 @@ async function sendPayslip({ to, mediaId, filename, nome, mes }) {
     }
   };
   const j = await graph(`https://graph.facebook.com/${V()}/${pid()}/messages`, { method: 'POST',
-    headers: { Authorization: `Bearer ${tok()}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    headers: { Authorization: `Bearer ${tok()}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+    ` [modelo=${body.template.name} idioma=${body.template.language.code}]`);
   return j.messages?.[0]?.id;
 }
 module.exports = { uploadPdf, sendPayslip };
