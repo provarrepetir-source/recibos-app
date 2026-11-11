@@ -61,6 +61,18 @@ async function diagnose() {
   const ids = new Set();
   for (const g of d.granular_scopes || []) if (/^whatsapp_business_(management|messaging)$/.test(g.scope)) (g.target_ids || []).forEach(x => ids.add(String(x)));
   for (const x of (process.env.WABA_ID || '').split(/[,\s;]+/).filter(Boolean)) ids.add(x);   // WABA_ID aceita vários IDs separados por vírgula
+  // pormenores do número (separado: se algum campo não existir, não estraga o resto)
+  out.numeroDetalhe = await tryIt(() => getJson(pid(), { fields: 'platform_type,account_mode,status,name_status,code_verification_status' }));
+  // descoberta das contas da empresa (precisa de BUSINESS_ID, o business_id que aparece nos endereços do Business Suite)
+  const biz = (process.env.BUSINESS_ID || '').trim();
+  if (biz) {
+    out.descoberta = {};
+    for (const edge of ['owned_whatsapp_business_accounts', 'client_whatsapp_business_accounts']) {
+      const r = await tryIt(() => getJson(`${biz}/${edge}`, { fields: 'id,name', limit: 50 }));
+      out.descoberta[edge] = r.data ? r.data.map(a => `${a.id} · ${a.name}`) : r;
+      (r.data || []).forEach(a => ids.add(String(a.id)));
+    }
+  }
   out.contas = [];
   for (const id of ids) {
     const info = await tryIt(() => getJson(id, { fields: 'name' }));
@@ -77,6 +89,7 @@ async function diagnose() {
   const c = [];
   const dono = out.contas.find(x => x.temOMeuNumero);
   if (!out.contas.length) c.push('Não consegui listar contas WhatsApp Business com este token (ver "token" e "contas"). Defina WABA_ID no Railway (pode indicar várias contas separadas por vírgula).');
+  else if (out.contas.every(x => x.temOMeuNumero === null)) c.push('Não consegui ler nenhuma das contas indicadas (ver "contas"). Com o erro "This API is not supported", o ID indicado provavelmente não é o ID da conta WhatsApp Business da API.');
   else if (!dono) c.push('O PHONE_NUMBER_ID configurado NÃO pertence a nenhuma das contas listadas. Use o ID de um número de uma destas contas (ver "numeros").');
   else {
     c.push(`O número configurado pertence à conta ${dono.id} (${dono.nome}).`);
