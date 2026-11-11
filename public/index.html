@@ -1,17 +1,40 @@
 <!doctype html><html lang="pt"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Recibos</title>
-<style>body{font:15px system-ui;background:#111;color:#eee;margin:0;padding:16px;max-width:900px;margin-inline:auto}input,button{padding:10px;font-size:15px;border-radius:8px;border:1px solid #444;background:#1c1c1c;color:#eee}button{background:#2a6;border:0}
-table{width:100%;border-collapse:collapse;margin-top:12px}td,th{padding:6px 8px;border-bottom:1px solid #333;text-align:left;font-size:14px}.ok{color:#5d5}.bad{color:#f77}.top{display:flex;justify-content:space-between;align-items:center}</style></head>
+<style>body{font:15px system-ui;background:#111;color:#eee;margin:0;padding:16px;max-width:900px;margin-inline:auto}input,button{padding:10px;font-size:15px;border-radius:8px;border:1px solid #444;background:#1c1c1c;color:#eee}button{background:#2a6;border:0}button:disabled{opacity:.5}
+table{width:100%;border-collapse:collapse;margin-top:12px}td,th{padding:6px 8px;border-bottom:1px solid #333;text-align:left;font-size:14px}.ok{color:#5d5}.bad{color:#f77}.top{display:flex;justify-content:space-between;align-items:center}
+input[type=checkbox]{width:18px;height:18px;padding:0}.bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:12px}.warn{color:#fb4}</style></head>
 <body><div class="top"><h2>Recibos de vencimento</h2><form method="post" action="/logout"><button style="background:#444">Sair</button></form></div>
-<p>Carregue o PDF do mês. Nada é enviado nesta fase: só a pré-visualização.</p>
 <p><button id="sf" style="background:#357">Preparar pastas no Drive</button> <span id="sfm"></span></p>
+<p>Carregue o PDF (do mês atual ou até 4 meses atrás), analise, escolha quem recebe e envie.</p>
 <input type="file" id="f" accept="application/pdf"> <button id="b">Analisar</button><div id="r"></div>
 <script>
 const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 $('sf').onclick=async()=>{$('sfm').textContent='…';const x=await fetch('/api/setup-folders',{method:'POST'});const d=await x.json();$('sfm').textContent=d.ok?'Criadas/encontradas: '+d.pastas.join(' · ')+'. Pode movê-las para onde quiser.':(d.error||'erro')};
+
+let rows=[];
+const sel=()=>[...document.querySelectorAll('.sel:checked')].map(c=>c.value);
+function updBtn(){const n=sel().length;if($('go')){$('go').textContent=n?`Enviar a ${n} selecionado${n>1?'s':''}…`:'Selecione quem recebe';$('go').disabled=!n}}
+
 $('b').onclick=async()=>{const f=$('f').files[0];if(!f)return;$('r').textContent='A analisar…';
 const fd=new FormData();fd.append('pdf',f);const x=await fetch('/api/preview',{method:'POST',body:fd});
 if(x.status===401){location='/login.html';return}const d=await x.json();if(d.error){$('r').textContent=d.error;return}
-const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+rows=d.funcionarios;
 $('r').innerHTML=`<p>${d.totalPaginas} páginas · <b class="ok">${d.resumo.prontos} prontos</b> · <b class="bad">${d.resumo.bloqueados} bloqueados</b>${d.paginasIlegiveis.length?` · páginas ilegíveis: ${d.paginasIlegiveis}`:''}</p>
-<table><tr><th>Id</th><th>Nome</th><th>Páginas</th><th>Telemóvel</th><th>NIF</th><th>Estado</th></tr>`+d.funcionarios.map(r=>`<tr><td>${esc(r.id)}</td><td>${esc(r.nome)}</td><td>${r.paginas.join(', ')}</td><td>${esc(r.telemovel||'—')}</td><td>${esc(r.nif||'—')}</td><td class="${r.status==='ok'?'ok':'bad'}">${r.status==='ok'?'OK':esc(r.problemas.join('; '))}</td></tr>`).join('')+'</table>'};
+<div class="bar"><label><input type="checkbox" id="all" checked> Selecionar todos os prontos</label>
+<label title="Necessário para reenviar um recibo que já foi enviado antes"><input type="checkbox" id="re"> Reenviar mesmo que já enviado</label></div>
+<table><tr><th></th><th>Id</th><th>Nome</th><th>Páginas</th><th>Telemóvel</th><th>NIF</th><th>Estado</th></tr>`+rows.map(r=>`<tr><td>${r.status==='ok'?`<input type="checkbox" class="sel" value="${esc(r.id)}" checked>`:''}</td><td>${esc(r.id)}</td><td>${esc(r.nome)}</td><td>${r.paginas.join(', ')}</td><td>${esc(r.telemovel||'—')}</td><td>${esc(r.nif||'—')}</td><td class="${r.status==='ok'?'ok':'bad'}">${r.status==='ok'?'OK':esc(r.problemas.join('; '))}</td></tr>`).join('')+'</table>'+(d.resumo.prontos?'<p><button id="go"></button> <span id="gom"></span></p>':'');
+document.querySelectorAll('.sel').forEach(c=>c.onchange=()=>{$('all').checked=sel().length===document.querySelectorAll('.sel').length;updBtn()});
+if($('all'))$('all').onchange=e=>{document.querySelectorAll('.sel').forEach(c=>c.checked=e.target.checked);updBtn()};
+updBtn();
+if($('go'))$('go').onclick=async()=>{const m=await (await fetch('/api/mode')).json();if(m.erro){alert(m.erro);return}
+const ids=sel(),nomes=ids.map(i=>rows.find(r=>r.id===i).nome);
+const quem=nomes.length<=5?nomes.join(', '):nomes.length+' pessoas';
+const re=$('re').checked;
+const txt=(m.modo==='REAL'?'ENVIO REAL a: '+quem+'.':'MODO TESTE: os recibos de '+quem+' vão TODOS para o número '+m.teste+', e não para os empregados.')+(re?'\n\nATENÇÃO: reenvio ativado, será enviado mesmo que já tenha sido enviado.':'');
+if(!confirm(txt+'\n\nContinuar?'))return;$('go').disabled=true;$('gom').textContent='A enviar… não feche a página.';
+const fd2=new FormData();fd2.append('pdf',$('f').files[0]);fd2.append('confirmacao','ENVIAR');fd2.append('ids',ids.join(','));if(re)fd2.append('reenviar','1');
+const y=await fetch('/api/send',{method:'POST',body:fd2});const r=await y.json();
+$('gom').innerHTML=r.error?'<span class="bad">'+esc(r.error)+'</span>':`${r.modo}: ${r.enviados} enviados · ${r.falhas} falhas · ${r.naoEnviados} não enviados (${r.periodo}). Relatório no Drive: ${r.relatorio?'sim':'<b class="bad">NÃO</b>'}`;
+if(r.linhas){const bad=r.linhas.filter(l=>/FALHOU|não enviado/.test(l.estado));if(bad.length)$('gom').innerHTML+='<br>'+bad.map(l=>esc(l.nome)+': '+esc(l.estado+' ('+l.detalhe+')')).join('<br>')}};
+};
 </script></body></html>
