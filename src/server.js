@@ -90,6 +90,25 @@ app.post('/api/preview', upload.single('pdf'), async (req, res) => {
   } finally { if (f) fs.rm(f.path, { force: true }).catch(() => {}); }
 });
 
+const { sendBatch, mode } = require('./send');
+let sending = false;
+app.get('/api/mode', (req, res) => { try { const m = mode(); res.json({ modo: m.live ? 'REAL' : 'TESTE', teste: m.test ? m.test.slice(0, 5) + '••••' : null }); } catch (e) { res.json({ erro: e.message }); } });
+app.post('/api/send', upload.single('pdf'), async (req, res) => {
+  const f = req.file;
+  if (sending) { if (f) fs.rm(f.path, { force: true }).catch(() => {}); return res.status(409).json({ error: 'Já existe um envio em curso' }); }
+  sending = true;
+  try {
+    if (!f) return res.status(400).json({ error: 'Falta o ficheiro PDF' });
+    if (req.body.confirmacao !== 'ENVIAR') return res.status(400).json({ error: 'Falta a confirmação' });
+    if ((await fs.readFile(f.path)).subarray(0, 5).toString() !== '%PDF-') return res.status(400).json({ error: 'O ficheiro não é um PDF' });
+    const only = req.body.ids ? String(req.body.ids).split(',').map(x => x.trim()).filter(Boolean) : null;
+    if (only && !only.length) return res.status(400).json({ error: 'Nenhum funcionário selecionado' });
+    const { res: r, out } = await sendBatch(f.path, { force: req.body.reenviar === '1', only });
+    res.json({ ...r, linhas: out.map(o => ({ id: o.id, nome: o.nome, estado: o.estado, detalhe: o.detalhe })) });
+  } catch (e) { console.error('envio falhou:', e.message); res.status(500).json({ error: e.message }); }
+  finally { sending = false; if (f) fs.rm(f.path, { force: true }).catch(() => {}); }
+});
+
 app.post('/api/setup-folders', async (req, res) => {
   try { res.json({ ok: true, pastas: Object.keys(await google.setupFolders()) }); }
   catch (e) { console.error('setup pastas:', e.message); res.status(500).json({ error: e.message }); }

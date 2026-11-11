@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const run = promisify(execFile);
 
 const RE_ID = /Funcion[aá]rio:\s*(\d+)\s*-\s*(.+?)(?:\s{2,}|\n)/;
+const RE_PERIODO = /\((\d{4})-(\d{2})-\d{2}\s+a\s+\d{4}-\d{2}-\d{2}\)/;
 const RE_NIF = /N[ºo°]\.\s*Contrib\.:\s*(\d{9})/;
 
 async function extractPages(pdfPath) {
@@ -17,7 +18,8 @@ async function extractPages(pdfPath) {
   return pages.map((text, i) => {
     const id = text.match(RE_ID);
     const nif = text.match(RE_NIF);
-    return { page: i + 1, id: id ? id[1] : null, name: id ? id[2].trim() : null, nif: nif ? nif[1] : null };
+    const per = text.match(RE_PERIODO);
+    return { page: i + 1, id: id ? id[1] : null, name: id ? id[2].trim() : null, nif: nif ? nif[1] : null, ano: per ? +per[1] : null, mes: per ? +per[2] : null };
   });
 }
 
@@ -52,4 +54,14 @@ async function buildProtectedPdf(srcPath, pageNumbers, password) {
 
 const sha256 = buf => crypto.createHash('sha256').update(buf).digest('hex');
 
-module.exports = { extractPages, groupByEmployee, buildProtectedPdf, sha256 };
+const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+function periodoDoPdf(pages) {
+  const c = {};
+  for (const p of pages) if (p.ano) c[p.ano + '-' + p.mes] = (c[p.ano + '-' + p.mes] || 0) + 1;
+  const k = Object.keys(c);
+  if (k.length !== 1) return null;           // vários períodos no mesmo PDF = recusar
+  const [ano, mes] = k[0].split('-').map(Number);
+  return { ano, mes, label: `${MESES[mes - 1]} de ${ano}` };
+}
+
+module.exports = { periodoDoPdf, extractPages, groupByEmployee, buildProtectedPdf, sha256 };
