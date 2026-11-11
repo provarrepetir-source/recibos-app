@@ -60,7 +60,7 @@ async function diagnose() {
   out.token = dbg.erro ? { erro: dbg.erro } : { tipo: d.type, valido: d.is_valid, expira: d.expires_at ? new Date(d.expires_at * 1000).toISOString().slice(0, 10) : 'nunca', scopes: d.scopes };
   const ids = new Set();
   for (const g of d.granular_scopes || []) if (/^whatsapp_business_(management|messaging)$/.test(g.scope)) (g.target_ids || []).forEach(x => ids.add(String(x)));
-  if (process.env.WABA_ID) ids.add(process.env.WABA_ID.trim());
+  for (const x of (process.env.WABA_ID || '').split(/[,\s;]+/).filter(Boolean)) ids.add(x);   // WABA_ID aceita vários IDs separados por vírgula
   out.contas = [];
   for (const id of ids) {
     const info = await tryIt(() => getJson(id, { fields: 'name' }));
@@ -76,7 +76,7 @@ async function diagnose() {
   }
   const c = [];
   const dono = out.contas.find(x => x.temOMeuNumero);
-  if (!out.contas.length) c.push('Não consegui listar contas WhatsApp Business com este token (ver "token" e "contas"). Se souber o ID da conta, defina WABA_ID no Railway.');
+  if (!out.contas.length) c.push('Não consegui listar contas WhatsApp Business com este token (ver "token" e "contas"). Defina WABA_ID no Railway (pode indicar várias contas separadas por vírgula).');
   else if (!dono) c.push('O PHONE_NUMBER_ID configurado NÃO pertence a nenhuma das contas listadas. Use o ID de um número de uma destas contas (ver "numeros").');
   else {
     c.push(`O número configurado pertence à conta ${dono.id} (${dono.nome}).`);
