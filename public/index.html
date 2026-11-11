@@ -4,12 +4,15 @@ table{width:100%;border-collapse:collapse;margin-top:12px}td,th{padding:6px 8px;
 input[type=checkbox]{width:18px;height:18px;padding:0}.bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:12px}.warn{color:#fb4}</style></head>
 <body><div class="top"><h2>Recibos de vencimento</h2><form method="post" action="/logout"><button style="background:#444">Sair</button></form></div>
 <p><button id="sf" style="background:#357">Preparar pastas no Drive</button> <span id="sfm"></span></p>
+<p><button id="dm" style="background:#357">Diagnóstico Meta</button></p><pre id="dmo" style="white-space:pre-wrap;word-break:break-all;font-size:13px"></pre>
 <p>Carregue o PDF (do mês atual ou até 4 meses atrás), analise, escolha quem recebe e envie.</p>
 <input type="file" id="f" accept="application/pdf"> <button id="b">Analisar</button><div id="r"></div>
 <script>
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 $('sf').onclick=async()=>{$('sfm').textContent='…';const x=await fetch('/api/setup-folders',{method:'POST'});const d=await x.json();$('sfm').textContent=d.ok?'Criadas/encontradas: '+d.pastas.join(' · ')+'. Pode movê-las para onde quiser.':(d.error||'erro')};
+
+$('dm').onclick=async()=>{$('dmo').textContent='…';const x=await fetch('/api/diag-meta');if(x.status===401){location='/login.html';return}const d=await x.json();$('dmo').textContent=d.error?d.error:(d.conclusao||[]).join('\n')+'\n\n'+JSON.stringify(d,null,2)};
 
 let rows=[];
 const sel=()=>[...document.querySelectorAll('.sel:checked')].map(c=>c.value);
